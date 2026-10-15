@@ -5,6 +5,7 @@ import auth
 TAX = 0.15
 SEPARATOR = "=============================="
 
+#Items is [] was fixed by refactor
 def process_order(token, items, coupon=None, shipping="standard", log=None):
     username = auth.sessions.get(token)
     if username is None:
