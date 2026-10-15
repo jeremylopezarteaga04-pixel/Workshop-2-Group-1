@@ -5,7 +5,8 @@ import auth
 TAX = 0.15
 SEPARATOR = "=============================="
 
-def process_order(token, items, coupon=None, shipping="standard", log=[]):
+def process_order(token, items, coupon=None, shipping="standard", log=None):
+    log = []
     username = auth.sessions.get(token)
     if username != None:
         if items is []:
