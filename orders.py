@@ -64,7 +64,7 @@ def _apply_coupon(total, coupon, token):
         "BLACKFRIDAY": 0.5,
         "STAFF": 0.7,
     }
-
+    #Already covered by refactoring
     if coupon == "STAFF" and not auth.is_admin(token):
         return total * discounts["STAFF"]
 
