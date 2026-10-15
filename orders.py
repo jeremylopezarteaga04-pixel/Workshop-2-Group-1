@@ -6,52 +6,80 @@ TAX = 0.15
 SEPARATOR = "=============================="
 
 def process_order(token, items, coupon=None, shipping="standard", log=None):
-    log = []
     username = auth.sessions.get(token)
-    if username != None:
-        if items is []:
-            print("Empty order")
-            return None
-        total = 0
-        for item in items:
-            book = database.get_book(item["book_id"])
-            if book:
-                if book[3] >= item["qty"]:
-                    if item["qty"] > 0:
-                        total = total + book[2] * item["qty"]
-                        database.update_stock(book[0], book[3] - item["qty"])
-                    else:
-                        print("Invalid quantity")
-                else:
-                    if book[3] > 0:
-                        print("Only " + str(book[3]) + " units available for " + book[1])
-                    else:
-                        print("Book out of stock: " + book[1])
-            else:
-                print("Book not found")
-        if coupon:
-            if coupon == "WELCOME10":
-                total = total * 0.9
-            elif coupon == "BLACKFRIDAY":
-                total = total * 0.5
-            elif coupon == "STAFF":
-                if auth.is_admin(token):
-                    total = total * 0.7
-                else:
-                    total = total * 0.7
-        if shipping == "express":
-            total = total + 10
-        elif shipping == "standard":
-            total = total + 3
-        total = total + total * TAX
-        order_id = len(log) + 1
-        database.save_order(order_id, username, total, "PENDING")
-        log.append(order_id)
-        return round(total, 2)
-    else:
+    if username is None:
         print("Invalid session")
         return None
 
+    if not items:
+        print("Empty order")
+        return None
+
+    if log is None:
+        log = []
+
+    total = _calculate_items_total(items)
+    total = _apply_coupon(total, coupon, token)
+    total = _apply_shipping(total, shipping)
+    total *= (1 + TAX)
+
+    order_id = len(log) + 1
+    database.save_order(order_id, username, total, "PENDING")
+    log.append(order_id)
+
+    return round(total, 2)
+
+
+def _calculate_items_total(items):
+    total = 0
+
+    for item in items:
+        book = database.get_book(item["book_id"])
+        qty = item["qty"]
+
+        if book is None:
+            print("Book not found")
+            continue
+
+        if qty <= 0:
+            print("Invalid quantity")
+            continue
+
+        if book[3] < qty:
+            if book[3] > 0:
+                print(f"Only {book[3]} units available for {book[1]}")
+            else:
+                print(f"Book out of stock: {book[1]}")
+            continue
+
+        total += book[2] * qty
+        database.update_stock(book[0], book[3] - qty)
+
+    return total
+
+
+def _apply_coupon(total, coupon, token):
+    discounts = {
+        "WELCOME10": 0.9,
+        "BLACKFRIDAY": 0.5,
+        "STAFF": 0.7,
+    }
+
+    if coupon == "STAFF" and not auth.is_admin(token):
+        return total * discounts["STAFF"]
+
+    if coupon in discounts:
+        return total * discounts[coupon]
+
+    return total
+
+
+def _apply_shipping(total, shipping):
+    shipping_costs = {
+        "express": 10,
+        "standard": 3,
+    }
+    return total + shipping_costs.get(shipping, 0)
 
 def print_invoice(username, items):
     print(SEPARATOR)
